@@ -7,9 +7,10 @@ import torch
 import cv2
 import numpy as np
 import sys
+from datetime import datetime
 
 sys.path.append('./yolov5')
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='./train_model/best.pt', force_reload=True)
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='./train_model/tracffict01.pt', force_reload=True)
 
 
 # img = cv2.imread('./data/road876.png')
@@ -30,6 +31,7 @@ class TrafficLightApp(tk.Tk):
         self.video = ''
         self.live = ''
         self.file_path = ''
+        self.video_file_path = ''
 
     def init_ui(self):
         self.label1 = tk.Label(self, text="Detect Traffic Light", font=("Microsoft Sans Serif", 48))
@@ -37,8 +39,8 @@ class TrafficLightApp(tk.Tk):
 
         self.panel1 = tk.Frame(self, bd=1, relief=tk.SUNKEN)
         self.panel1.place(x=46, y=141, width=890, height=419)
-        self.image_label = tk.Label(self.panel1)
-        self.image_label.pack(padx=5, pady=5)
+        self.preview = tk.Canvas(self.panel1, width=890, height=419, bg="white")
+        self.preview.pack(padx=5, pady=5)
 
         self.panel2 = tk.Frame(self, bd=1, relief=tk.SUNKEN)
         self.panel2.place(x=46, y=573, width=1255, height=220)
@@ -85,7 +87,7 @@ class TrafficLightApp(tk.Tk):
         self.btn_image = tk.Button(self.panel3, text="Upload Image", command=self.open_image)
         self.btn_image.pack(fill=tk.X, padx=5, pady=5)
 
-        self.btn_video = tk.Button(self.panel3, text="Upload Video", state=tk.DISABLED)
+        self.btn_video = tk.Button(self.panel3, text="Upload Video", state=tk.DISABLED, command=self.open_video)
         self.btn_video.pack(fill=tk.X, padx=5, pady=5)
 
         self.btn_live = tk.Button(self.panel3, text="Live Video", state=tk.DISABLED)
@@ -111,15 +113,53 @@ class TrafficLightApp(tk.Tk):
     def process_image(self, option):
         img = cv2.imread(self.file_path)
         results = model(img)
-        img = ImageTk.PhotoImage(Image.fromarray(cv2.cvtColor(np.squeeze(results.render()), cv2.COLOR_BGR2RGB)))
-        self.image_label.config(image=img)
-        self.image_label.image = img
+        image = Image.fromarray(cv2.cvtColor(np.squeeze(results.render()), cv2.COLOR_BGR2RGB))
+        img = ImageTk.PhotoImage(image)
+        # self.image_label.config(image=img)
+        # self.image_label.image = img
+        # self.richTextBox1.config(state=tk.NORMAL)
+        # self.richTextBox1.insert(tk.END, results)
+        # self.richTextBox1.config(state=tk.DISABLED)
+
+        x_center = (self.preview.winfo_width() - image.width) // 2
+        y_center = (self.preview.winfo_height() - image.height) // 2
+
+        self.preview.delete("all")
+        self.preview.create_image(x_center, y_center, image=img, anchor=tk.NW)
+
+        self.preview.image = img
+
         self.richTextBox1.config(state=tk.NORMAL)
         self.richTextBox1.insert(tk.END, results)
         self.richTextBox1.config(state=tk.DISABLED)
 
     def process_video(self, option):
         self.btn_video.config(state=tk.NORMAL)
+        self.cap = cv2.VideoCapture(self.video_file_path)
+        self.update_preview()
+        # cap = cv2.VideoCapture(self.video_file_path)
+        # while cap.isOpened():
+        #     ret, frame = cap.read()
+        #     if not ret:
+        #         break
+        #
+        #     # Convert frame to PIL Image and pass it to the YOLO model
+        #     pil_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        #     results = model(pil_frame)
+        #
+        #     # Draw the detections on the frame
+        #     for *xyxy, conf, cls in results.xyxy[0].cpu().numpy():
+        #         x1, y1, x2, y2 = map(int, xyxy)
+        #         label = model.names[int(cls)]
+        #         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        #         cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        #
+        #     # Show the frame with detections
+        #     cv2.imshow('Detections', frame)
+        #
+        #     # Break the loop if 'q' key is pressed
+        #     if cv2.waitKey(1) & 0xFF == ord('q'):
+        #         break
 
     def process_livestream(self, option):
         pass  # Implement the livestream processing code here
@@ -154,8 +194,89 @@ class TrafficLightApp(tk.Tk):
         self.photo = cv2.imread(file_path)
         image.thumbnail((880, 410))
         tkinter_image = ImageTk.PhotoImage(image)
-        self.image_label.config(image=tkinter_image)
-        self.image_label.image = tkinter_image
+
+        x_center = (self.preview.winfo_width() - image.width) // 2
+        y_center = (self.preview.winfo_height() - image.height) // 2
+
+        self.preview.delete("all")
+        self.preview.create_image(x_center, y_center, image=tkinter_image, anchor=tk.NW)
+        self.preview.image = tkinter_image
+
+    def open_video(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4;*.avi;*.mov;*.mkv")])
+        self.video_file_path = file_path
+        # Read the first frame of the video\
+
+        cap = cv2.VideoCapture(file_path)
+        ret, frame = cap.read()
+        cap.release()
+        if ret:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(frame)
+            image.thumbnail((880, 410))
+            tkinter_image = ImageTk.PhotoImage(image)
+
+            x_center = (self.preview.winfo_width() - image.width) // 2
+            y_center = (self.preview.winfo_height() - image.height) // 2
+
+            self.preview.delete("all")
+            self.preview.create_image(x_center, y_center, image=tkinter_image, anchor=tk.NW)
+            self.preview.image = tkinter_image
+
+    def open_webcam(self):
+        cap = cv2.VideoCapture(0)  # 0 is the default webcam index
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # You can perform your desired operations on the frame here
+
+            cv2.imshow('Webcam', frame)
+
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+
+        cap.release()
+        cv2.destroyAllWindows()
+
+    def update_preview(self):
+        if not self.cap:
+            return
+
+        ret, frame = self.cap.read()
+        if not ret:
+            self.cap.release()
+            return
+
+        pil_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        results = model(pil_frame)
+        label = ''
+        # Draw the detections on the frame
+        for *xyxy, conf, cls in results.xyxy[0].cpu().numpy():
+            x1, y1, x2, y2 = map(int, xyxy)
+            label = model.names[int(cls)]
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+        tkinter_image = ImageTk.PhotoImage(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+
+        x_center = (self.preview.winfo_width() - tkinter_image.width()) // 2
+        y_center = (self.preview.winfo_height() - tkinter_image.height()) // 2
+
+        self.preview.delete("all")
+        self.preview.create_image(x_center, y_center, image=tkinter_image, anchor=tk.NW)
+        self.preview.image = tkinter_image
+
+        if label != '':
+            self.richTextBox1.config(state=tk.NORMAL)
+            self.richTextBox1.insert(tk.END,
+                                     "Detect " + label + " at " + datetime.now().strftime("%H:%M:%S %d/%m/%Y") + "\n")
+            self.richTextBox1.config(state=tk.DISABLED)
+
+        self.preview.after(10, self.update_preview)
 
 
 app = TrafficLightApp()
