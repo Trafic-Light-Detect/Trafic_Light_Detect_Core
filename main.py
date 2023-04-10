@@ -260,8 +260,10 @@ class TrafficLightApp(tk.Tk):
             label = model.names[int(cls)]
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-        tkinter_image = ImageTk.PhotoImage(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+        pil_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        pil_frame.thumbnail((880, 410))
+        thumbnail = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)).resize((880, 410))
+        tkinter_image = ImageTk.PhotoImage(pil_frame)
 
         x_center = (self.preview.winfo_width() - tkinter_image.width()) // 2
         y_center = (self.preview.winfo_height() - tkinter_image.height()) // 2
@@ -276,7 +278,7 @@ class TrafficLightApp(tk.Tk):
                                      "Detect " + label + " at " + datetime.now().strftime("%H:%M:%S %d/%m/%Y") + "\n")
             self.richTextBox1.config(state=tk.DISABLED)
 
-        self.preview.after(10, self.update_preview)
+        self.preview.after(30, self.update_preview)
 
 
 app = TrafficLightApp()
