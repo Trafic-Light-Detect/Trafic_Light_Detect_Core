@@ -19,11 +19,11 @@ model = torch.hub.load('ultralytics/yolov5', 'custom', path='./train_model/tracf
 # cv2.imshow("212", cv2.cvtColor(np.squeeze(results.render()), cv2.COLOR_BGR2RGB))
 
 
-class TrafficLightApp(tk.Tk):
+class TrafficSignApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Detect Traffic Light")
+        self.title("Detect Traffic Sign")
         self.geometry("1346x805")
 
         self.init_ui()
@@ -281,5 +281,5 @@ class TrafficLightApp(tk.Tk):
         self.preview.after(30, self.update_preview)
 
 
-app = TrafficLightApp()
+app = TrafficSignApp()
 app.mainloop()
