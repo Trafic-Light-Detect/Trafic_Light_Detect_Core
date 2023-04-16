@@ -1,18 +1,21 @@
 import tkinter as tk
-from os import name
 from tkinter import ttk
 from tkinter import filedialog
 from PIL import ImageTk, Image
 import torch
 import cv2
 import numpy as np
-import sys
 from datetime import datetime
+from keras.models import load_model
+import h5py
 
-sys.path.append('./yolov5')
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='./train_model/tracffict01.pt', force_reload=True)
+# sys.path.append('./yolov5')
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='./train_model/traffic04.pt', force_reload=True)
+classify_names = ['Cam Di Nguoc Chieu', 'Cam Do Xe', 'Cam Dung Va Do Xe', 'Cam O To', 'Cam Quay Dau', 'Cam Re Phai', 'Cam Re Trai', 'Cam Xe Buyt', 'Cho Ngoac Nguy Hiem Lien Tiep W.202a', 'Cho Ngoac Nguy Hiem Lien Tiep W.202b', 'Dung Lai', 'Duong Khong Bang Phang', 'Duong di bo', 'Giao Nhau Chay Theo Vong Xuyen',
+                  'Giao Nhau Voi Duong Khong Uu Tien 207a', 'Giao Nhau Voi Duong Khong Uu Tien 207b', 'Giao Nhau Voi Duong Khong Uu Tien 207c', 'Giao Nhau Voi Duong Uu Tien', 'Han Che Toc Do 30', 'Han Che Toc Do 40', 'Han Che Toc Do 50', 'Han Che Toc Do 60', 'Han Che Toc Do 80', 'Nguoi Di Xe Dap Cat Ngang', 'Tre Em']
 
-
+with h5py.File("./train_model/best_model.h5", 'r') as f:
+    classify_model = load_model(f)
 # img = cv2.imread('./data/road876.png')
 # results = model(img)
 # print(results)
@@ -22,10 +25,8 @@ model = torch.hub.load('ultralytics/yolov5', 'custom', path='./train_model/tracf
 class TrafficSignApp(tk.Tk):
     def __init__(self):
         super().__init__()
-
         self.title("Detect Traffic Sign")
         self.geometry("1346x805")
-
         self.init_ui()
         self.photo = ''
         self.video = ''
@@ -34,7 +35,7 @@ class TrafficSignApp(tk.Tk):
         self.video_file_path = ''
 
     def init_ui(self):
-        self.label1 = tk.Label(self, text="Detect Traffic Light", font=("Microsoft Sans Serif", 48))
+        self.label1 = tk.Label(self, text="Detect Traffic Road", font=("Microsoft Sans Serif", 48))
         self.label1.pack(pady=20)
 
         self.panel1 = tk.Frame(self, bd=1, relief=tk.SUNKEN)
@@ -115,11 +116,6 @@ class TrafficSignApp(tk.Tk):
         results = model(img)
         image = Image.fromarray(cv2.cvtColor(np.squeeze(results.render()), cv2.COLOR_BGR2RGB))
         img = ImageTk.PhotoImage(image)
-        # self.image_label.config(image=img)
-        # self.image_label.image = img
-        # self.richTextBox1.config(state=tk.NORMAL)
-        # self.richTextBox1.insert(tk.END, results)
-        # self.richTextBox1.config(state=tk.DISABLED)
 
         x_center = (self.preview.winfo_width() - image.width) // 2
         y_center = (self.preview.winfo_height() - image.height) // 2
@@ -137,29 +133,6 @@ class TrafficSignApp(tk.Tk):
         self.btn_video.config(state=tk.NORMAL)
         self.cap = cv2.VideoCapture(self.video_file_path)
         self.update_preview()
-        # cap = cv2.VideoCapture(self.video_file_path)
-        # while cap.isOpened():
-        #     ret, frame = cap.read()
-        #     if not ret:
-        #         break
-        #
-        #     # Convert frame to PIL Image and pass it to the YOLO model
-        #     pil_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        #     results = model(pil_frame)
-        #
-        #     # Draw the detections on the frame
-        #     for *xyxy, conf, cls in results.xyxy[0].cpu().numpy():
-        #         x1, y1, x2, y2 = map(int, xyxy)
-        #         label = model.names[int(cls)]
-        #         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        #         cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        #
-        #     # Show the frame with detections
-        #     cv2.imshow('Detections', frame)
-        #
-        #     # Break the loop if 'q' key is pressed
-        #     if cv2.waitKey(1) & 0xFF == ord('q'):
-        #         break
 
     def process_livestream(self, option):
         pass  # Implement the livestream processing code here
@@ -254,15 +227,46 @@ class TrafficSignApp(tk.Tk):
         pil_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         results = model(pil_frame)
         label = ''
+        boxes = results.xyxy[0].numpy()
+        labels = results.xyxyn[0][:, -1].numpy().astype('int')
+        scores = results.xyxyn[0][:, -2].numpy()
+
+        cropped_objects = []
+
+        for i, box in enumerate(boxes):
+            x_min, y_min, x_max, y_max, score, classify = box
+            x_min = int(x_min)
+            y_min = int(y_min)
+            x_max = int(x_max)
+            y_max = int(y_max)
+            cropped_object = frame[y_min:y_max, x_min:x_max]
+            cropped_objects.append(cropped_object)
+
+        # cropped_objects = np.array(cropped_objects)
+
+        for image in cropped_objects:
+            image = cv2.resize(image, (32, 32))
+            image = np.expand_dims(image, axis=0)
+            image = image / 255.0
+            predictions = classify_model.predict(image)
+            predicted_label_index = np.argmax(predictions)
+            self.richTextBox1.config(state=tk.NORMAL)
+            self.richTextBox1.insert(tk.END,
+                                     ("Nhãn dự đoán: " + str(classify_names[predicted_label_index])) + " at " + datetime.now().strftime("%H:%M:%S %d/%m/%Y") + "\n")
+            self.richTextBox1.config(state=tk.DISABLED)
+            self.richTextBox1.see(tk.END)
+
+        result_frame = np.squeeze(results.render())
+
+
         # Draw the detections on the frame
-        for *xyxy, conf, cls in results.xyxy[0].cpu().numpy():
-            x1, y1, x2, y2 = map(int, xyxy)
-            label = model.names[int(cls)]
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        pil_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        # for *xyxy, conf, cls in results.xyxy[0].cpu().numpy():
+        #     x1, y1, x2, y2 = map(int, xyxy)
+        #     label = model.names[int(cls)]
+        #     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        #     cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        pil_frame = Image.fromarray(cv2.cvtColor(result_frame, cv2.COLOR_BGR2RGB))
         pil_frame.thumbnail((880, 410))
-        thumbnail = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)).resize((880, 410))
         tkinter_image = ImageTk.PhotoImage(pil_frame)
 
         x_center = (self.preview.winfo_width() - tkinter_image.width()) // 2
@@ -272,13 +276,13 @@ class TrafficSignApp(tk.Tk):
         self.preview.create_image(x_center, y_center, image=tkinter_image, anchor=tk.NW)
         self.preview.image = tkinter_image
 
-        if label != '':
-            self.richTextBox1.config(state=tk.NORMAL)
-            self.richTextBox1.insert(tk.END,
-                                     "Detect " + label + " at " + datetime.now().strftime("%H:%M:%S %d/%m/%Y") + "\n")
-            self.richTextBox1.config(state=tk.DISABLED)
+        # if label != '':
+        #     self.richTextBox1.config(state=tk.NORMAL)
+        #     self.richTextBox1.insert(tk.END,
+        #                              "Detect " + label + " at " + datetime.now().strftime("%H:%M:%S %d/%m/%Y") + "\n")
+        #     self.richTextBox1.config(state=tk.DISABLED)
 
-        self.preview.after(30, self.update_preview)
+        self.preview.after(1, self.update_preview)
 
 
 app = TrafficSignApp()
